@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breathing Timer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the breathing animation */
+        body {
+            /* Use a smooth gradient for a calming background */
+            background: linear-gradient(135deg, #1e3a8a, #3b0764);
+            font-family: 'Inter', sans-serif; /* A cleaner font */
+        }
+        
+        #circle {
+            width: 300px; /* Made circle larger for the timer */
+            height: 300px;
+            background-color: #60a5fa; /* Blue */
+            border-radius: 50%;
+            transition: background-color 0.5s ease-in-out;
+            
+            /* Center the timer text inside */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* * This style tag is a placeholder.
+         * The @keyframes animation will be dynamically generated 
+         * and injected here by JavaScript based on the selected method.
+        */
+        #animation-styles {
+            /* Example for 4-7-8 (19s total) */
+            /*
+            @keyframes breathe-cycle {
+                0%    { transform: scale(1); background-color: #60a5fa; }
+                21.05% { transform: scale(1.8); background-color: #c4b5fd; }
+                57.89% { transform: scale(1.8); background-color: #c4b5fd; }
+                100%   { transform: scale(1); background-color: #60a5fa; }
+            }
+            */
+        }
+
+        /* This class applies the animation */
+        .breathing {
+            /* The animation properties will be set by JavaScript */
+            animation-name: breathe-cycle;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+        }
+
+        /* Simple styling for the select dropdown */
+        select {
+            background-color: #1f2937; /* Dark background */
+            color: white;
+            border: 1px solid #4b5563;
+            padding: 8px 12px;
+            border-radius: 8px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.6-3.6%205.4-7.9%205.4-12.9%200-5-1.8-9.2-5.4-12.7z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 14px;
+        }
+    </style>
+    <!-- This is where the dynamic animation styles will be injected -->
+    <style id="animation-styles"></style>
+</head>
+<body class="font-sans text-white">
+
+    <main class="min-h-screen w-full flex flex-col items-center justify-center p-4">
+        
+        <!-- Method Selector -->
+        <div class="mb-8">
+            <label for="method-select" class="block text-sm font-medium text-white/80 mb-2">Breathing Method:</label>
+            <select id="method-select" class="text-lg rounded-md">
+                <option value="4-7-8">Relax (4-7-8)</option>
+                <option value="4-4-4-4">Box (4-4-4-4)</option>
+                <option value="4-4-4">Focus (4-4-4)</option>
+                <option value="4-2-6">Calm (4-2-6)</option>
+                <option value="2-0-4">Deep Calm (2-0-4)</option>
+            </select>
+        </div>
+
+        <!-- The main visual timer circle -->
+        <div id="circle" class="mb-8 shadow-2xl">
+            <!-- Instructional text -->
+            <p id="text" class="text-2xl md:text-3xl font-light tracking-wider">
+                Click Start
+            </p>
+            
+            <!-- The new countdown timer -->
+            <div id="timer" class="text-7xl font-bold text-white/90"></div>
+        </div>
+        
+        <!-- Start/Stop Button -->
+        <button id="startBtn" class="mt-8 px-8 py-3 bg-white/20 text-white text-lg font-semibold rounded-lg shadow-md hover:bg-white/30 transition-colors duration-300 backdrop-blur-sm">
+            Start
+        </button>
+
+        <!-- NEW: Stats Tracking -->
+        <div class="mt-10 flex justify-around w-full max-w-xs">
+            <div class="text-center px-4">
+                <span class="block text-sm text-white/80 uppercase tracking-wider">Total Time</span>
+                <span id="total-time" class="text-3xl font-bold">0:00</span>
+            </div>
+            <div class="text-center px-4">
+                <span class="block text-sm text-white/80 uppercase tracking-wider">Cycles</span>
+                <span id="cycle-count" class="text-3xl font-bold">0</span>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Element References ---
+        const circle = document.getElementById('circle');
+        const text = document.getElementById('text');
+        const timer = document.getElementById('timer');
+        const startBtn = document.getElementById('startBtn');
+        const methodSelect = document.getElementById('method-select');
+        const animationStyleTag = document.getElementById('animation-styles');
+        // NEW: Get references for new elements
+        const totalTimeEl = document.getElementById('total-time');
+        const cycleCountEl = document.getElementById('cycle-count');
+
+        // --- Breathing Methods Definitions ---
+        const methods = {
+            '4-7-8': {
+                name: 'Relax (4-7-8)',
+                phases: [
+                    { name: 'Inhale', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Hold', duration: 7, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Exhale', duration: 8, scale: 1, color: '#60a5fa' }
+                ]
+            },
+            '4-4-4-4': {
+                name: 'Box (4-4-4-4)',
+                phases: [
+                    { name: 'Inhale', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Hold', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Exhale', duration: 4, scale: 1, color: '#60a5fa' },
+                    { name: 'Hold', duration: 4, scale: 1, color: '#60a5fa' }
+                ]
+            },
+            '4-4-4': {
+                name: 'Focus (4-4-4)',
+                phases: [
+                    { name: 'Inhale', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Hold', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Exhale', duration: 4, scale: 1, color: '#60a5fa' }
+                ]
+            },
+            '4-2-6': {
+                name: 'Calm (4-2-6)',
+                phases: [
+                    { name: 'Inhale', duration: 4, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Hold', duration: 2, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Exhale', duration: 6, scale: 1, color: '#60a5fa' }
+                ]
+            },
+            '2-0-4': {
+                name: 'Deep Calm (2-0-4)',
+                phases: [
+                    { name: 'Inhale', duration: 2, scale: 1.8, color: '#c4b5fd' },
+                    { name: 'Exhale', duration: 4, scale: 1, color: '#60a5fa' }
+                    // Note: 0-duration phases are implicitly handled
+                ]
+            }
+        };
+
+        // --- State Variables ---
+        let isBreathing = false;
+        let currentMethodKey = '4-7-8';
+        let currentPhaseIndex = 0;
+        let phaseTimeout; // Stores the setTimeout for the *next* phase change
+        let countdownInterval; // Stores the setInterval for the 1-second timer
+        
+        // NEW: State variables for tracking
+        let totalTimeSpent = 0; // in seconds
+        let cycleCount = 0;
+        let totalTimeInterval; // Stores the interval for the total time clock
+
+        /**
+         * Updates the CSS @keyframes and animation duration
+         * based on the selected breathing method.
+         */
+        function updateAnimation(methodKey) {
+            const method = methods[methodKey];
+            const phases = method.phases;
+            const totalDuration = phases.reduce((sum, phase) => sum + phase.duration, 0);
+
+            if (totalDuration === 0) {
+                animationStyleTag.innerHTML = ""; // Clear animation
+                return;
+            }
+
+            let keyframes = "@keyframes breathe-cycle {\n";
+            let cumulativeTime = 0;
+
+            // Start at 0%
+            keyframes += `  0% { transform: scale(${phases[phases.length - 1].scale}); background-color: ${phases[phases.length - 1].color}; }\n`;
+
+            for (const phase of phases) {
+                if (phase.duration > 0) {
+                    cumulativeTime += phase.duration;
+                    const percentage = (cumulativeTime / totalDuration) * 100;
+                    keyframes += `  ${percentage.toFixed(2)}% { transform: scale(${phase.scale}); background-color: ${phase.color}; }\n`;
+                }
+            }
+            keyframes += "}";
+
+            // Inject the new keyframes rule
+            animationStyleTag.innerHTML = keyframes;
+            
+            // Apply the new duration to the .breathing class
+            circle.style.animationDuration = `${totalDuration}s`;
+        }
+
+        /**
+         * Toggles the breathing exercise on and off.
+         */
+        function toggleBreathing() {
+            isBreathing = !isBreathing; // Flip the state
+
+            if (isBreathing) {
+                startBtn.textContent = 'Stop';
+                methodSelect.disabled = true; // Disable dropdown while running
+                currentMethodKey = methodSelect.value;
+                updateAnimation(currentMethodKey); // Ensure animation is set
+                circle.classList.add('breathing'); // Start CSS animation
+                currentPhaseIndex = 0;
+                
+                // NEW: Reset and start trackers
+                totalTimeSpent = 0;
+                cycleCount = 0;
+                totalTimeEl.textContent = '0:00';
+                cycleCountEl.textContent = '0';
+
+                totalTimeInterval = setInterval(() => {
+                    totalTimeSpent++;
+                    const minutes = Math.floor(totalTimeSpent / 60);
+                    const seconds = totalTimeSpent % 60;
+                    totalTimeEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+                
+                runNextPhase(); // Start the JS timer cycle
+            } else {
+                stopBreathing(); // Stop the cycle
+            }
+        }
+
+        /**
+         * Stops the breathing cycle and resets the UI.
+         */
+        function stopBreathing() {
+            isBreathing = false; // Set state to stopped
+            startBtn.textContent = 'Start';
+            methodSelect.disabled = false; // Re-enable dropdown
+
+            // Stop all pending timers and intervals
+            clearTimeout(phaseTimeout);
+            clearInterval(countdownInterval);
+            clearInterval(totalTimeInterval); // NEW: Stop the total time clock
+
+            // Reset UI
+            circle.classList.remove('breathing'); // Stop CSS animation
+            circle.style.animationDuration = '0s'; // Clear duration
+            text.textContent = 'Click Start';
+            timer.textContent = ''; // Clear timer number
+            
+            // NEW: Reset trackers to 0
+            totalTimeSpent = 0;
+            cycleCount = 0;
+            totalTimeEl.textContent = '0:00';
+            cycleCountEl.textContent = '0';
+            
+            // Reset to default scale/color
+            circle.style.transform = 'scale(1)';
+            circle.style.backgroundColor = '#60a5fa';
+        }
+        
+        /**
+         * Runs the next phase in the breathing cycle.
+         * This function calls itself via setTimeout.
+         */
+        function runNextPhase() {
+            if (!isBreathing) return; // Check if "Stop" was pressed
+
+            const method = methods[currentMethodKey];
+            const phase = method.phases[currentPhaseIndex];
+
+            // Skip phases with 0 duration (like the hold in 2-0-4)
+            if (phase.duration === 0) {
+                currentPhaseIndex = (currentPhaseIndex + 1) % method.phases.length;
+                runNextPhase(); // Immediately go to the next phase
+                return;
+            }
+
+            // --- Set UI for current phase ---
+            text.textContent = phase.name + '...';
+            startCountdown(phase.duration);
+
+            // --- Wait for phase to end, then start next phase ---
+            phaseTimeout = setTimeout(() => {
+                // NEW: Check if this was the last phase of the cycle
+                const method = methods[currentMethodKey];
+                if (currentPhaseIndex === method.phases.length - 1) {
+                    cycleCount++;
+                    cycleCountEl.textContent = cycleCount;
+                }
+                
+                currentPhaseIndex = (currentPhaseIndex + 1) % method.phases.length;
+                runNextPhase();
+            }, phase.duration * 1000);
+        }
+
+        /**
+         * Starts the countdown display for a given duration.
+         */
+        function startCountdown(durationInSeconds) {
+            // Clear any old interval just in case
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            let count = durationInSeconds;
+            timer.textContent = count; // Show the first number immediately
+
+            countdownInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    timer.textContent = count;
+                } else {
+                    timer.textContent = 0; // Show 0 briefly
+                    clearInterval(countdownInterval); // Stop this interval
+                }
+            }, 1000); // Run every 1 second
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', toggleBreathing);
+
+        // When method changes, stop any active session
+        methodSelect.addEventListener('change', () => {
+            currentMethodKey = methodSelect.value;
+            if (isBreathing) {
+                stopBreathing();
+            }
+            // Update animation just to be safe (though it'll update on start)
+            updateAnimation(currentMethodKey);
+        });
+
+        // Set initial animation for default method
+        updateAnimation(currentMethodKey);
+
+    </script>
+</body>
+</html>
